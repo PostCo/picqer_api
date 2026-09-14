@@ -21,7 +21,7 @@ gem "picqer_api", "~> 0.1.0"
 require "picqer_api"
 
 client = PicqerAPI::Client.new(
-  subdomain: "mendex",          # the account's subdomain; for a fulfilment provider this is
+  subdomain: "acme",          # the account's subdomain; for a fulfilment provider this is
   api_key: ENV["PICQER_KEY"],   # the provider's, shared across its customers
   user_agent: "PostCo (engineering@postco.co)"
 )

@@ -22,11 +22,11 @@ RSpec.configure do |config|
 end
 
 module ClientHelpers
-  BASE_URL = "https://mendex.picqer.com/api/v1"
+  BASE_URL = "https://acme.picqer.com/api/v1"
 
   def build_client(**overrides)
     PicqerAPI::Client.new(
-      subdomain: "mendex",
+      subdomain: "acme",
       api_key: "test-key",
       sleeper: ->(_seconds) {},
       **overrides

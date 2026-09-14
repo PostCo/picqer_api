@@ -2,12 +2,12 @@
 
 RSpec.describe PicqerAPI::Client do
   it "builds the base URL from the subdomain" do
-    expect(build_client.base_url).to eq("https://mendex.picqer.com/api/v1/")
+    expect(build_client.base_url).to eq("https://acme.picqer.com/api/v1/")
   end
 
   it "requires a subdomain and an API key" do
     expect { described_class.new(subdomain: " ", api_key: "k") }.to raise_error(ArgumentError)
-    expect { described_class.new(subdomain: "mendex", api_key: "") }.to raise_error(ArgumentError)
+    expect { described_class.new(subdomain: "acme", api_key: "") }.to raise_error(ArgumentError)
   end
 
   it "sends the API key as the HTTP Basic username with an empty password" do
