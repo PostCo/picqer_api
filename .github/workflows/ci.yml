@@ -1,0 +1,18 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3.9"
+          bundler-cache: true
+      - run: bundle exec rake
+      - run: bundle exec ruby -Ilib -e 'require "picqer_api"; abort "Rails loaded" if defined?(Rails); abort "Zeitwerk loaded" if defined?(Zeitwerk)'
+      - run: gem build picqer_api.gemspec
