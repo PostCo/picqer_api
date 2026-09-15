@@ -3,6 +3,9 @@
 $LOAD_PATH.unshift File.expand_path("../lib", __dir__)
 
 require "picqer_api"
+require "base64"
+require "json"
+require "openssl"
 require "minitest/autorun"
 require "webmock/minitest"
 

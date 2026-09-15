@@ -1,0 +1,91 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# Read-only probe against a live Picqer account. Prints what the key can reach,
+# which vocabularies exist and what the rate-limit headers say.
+#
+#   PICQER_SUBDOMAIN=acme PICQER_API_KEY=$(cat ~/.config/picqer/key) bin/smoke
+#
+# Pass --write to also create a probe return, read it back, compare what was
+# stored against what was sent, and delete it again. The write probe is
+# destructive in one direction only: a return can be deleted until a line has
+# been added to stock, which this script never does.
+
+require "bundler/setup"
+require "picqer_api"
+
+subdomain = ENV.fetch("PICQER_SUBDOMAIN")
+api_key = ENV.fetch("PICQER_API_KEY")
+write = ARGV.include?("--write")
+
+client = PicqerAPI::Client.new(
+  subdomain: subdomain,
+  api_key: api_key,
+  user_agent: ENV.fetch("PICQER_USER_AGENT", "PostCo picqer_api smoke probe")
+)
+
+def section(title)
+  puts "\n== #{title}"
+end
+
+def report(label)
+  puts "   #{label}: #{yield}"
+rescue PicqerAPI::Error => error
+  puts "   #{label}: #{error.class.name.split("::").last} error_code=#{error.error_code.inspect} #{error.message[0, 120]}"
+end
+
+puts "picqer_api #{PicqerAPI::VERSION} -> #{client.base_url}"
+
+section "Reachability"
+report("warehouses") { client.warehouses.all.map { |row| "#{row.idwarehouse} #{row.name}" }.join(", ") }
+report("return_statuses") { client.return_statuses.all.map { |row| "#{row.idreturn_status} #{row.name}#{row.completed ? " (completed)" : ""}" }.join(", ") }
+report("return_reasons") { client.return_reasons.all.map { |row| "#{row.idreturn_reason} #{row.name}" }.join(", ") }
+report("returns (first page)") { client.returns.list.length }
+report("hooks") { client.hooks.all.map { |row| "#{row.idhook} #{row.event} active=#{row.active}" }.join(", ") }
+
+section "Scope"
+sample = begin
+  client.returns.list.first
+rescue PicqerAPI::Error
+  nil
+end
+report("idfulfilment_customer on a return") { sample ? sample.idfulfilment_customer.inspect : "no returns to inspect" }
+report("receive (expected NotAccessible on a scoped key)") do
+  next "skipped - no return to probe with" unless sample
+
+  client.returns.receive(sample.idreturn, idwarehouse: 0, returned_products: [])
+  "reachable - this key owns the warehouse"
+end
+
+section "Rate limit"
+puts "   #{client.rate_limit&.to_h.inspect}"
+
+section "Silent-filter guard"
+report("unsupported filter raises locally") do
+  client.returns.list(reference: "PROBE")
+  "NOT RAISED - the whitelist is wrong"
+rescue ArgumentError => error
+  "ArgumentError: #{error.message[0, 80]}"
+end
+
+unless write
+  puts "\nRead-only. Pass --write to exercise create, read-back and delete."
+  exit
+end
+
+section "Write probe"
+status = client.return_statuses.all.first or abort("   no return status available to create with")
+reference = "PROBE-#{Time.now.to_i}"
+sent_name = "Probe 😀 #{"x" * 300}"
+
+created = client.returns.create({idreturn_status: status.idreturn_status, reference: reference, name: sent_name})
+puts "   created idreturn=#{created.idreturn} returnid=#{created.returnid}"
+
+stored = client.returns.find(created.idreturn)
+puts "   create echo name length: #{created.name.to_s.length} (echoes input)"
+puts "   stored  name length: #{stored.name.to_s.length} (what Picqer kept)"
+puts "   emoji survived: #{stored.name.to_s.include?("😀")}"
+puts "   reference round-tripped: #{stored.reference == reference}"
+
+client.returns.delete(created.idreturn)
+puts "   deleted #{created.idreturn}"

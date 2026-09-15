@@ -25,8 +25,10 @@ module PicqerAPI
       raise ArgumentError, "subdomain is required" if subdomain.to_s.strip.empty?
       raise ArgumentError, "api_key is required" if api_key.to_s.strip.empty?
 
-      @subdomain = subdomain
-      @api_key = api_key
+      # A credential read from a file or an env var usually arrives with a
+      # trailing newline, which Picqer answers with an opaque 401.
+      @subdomain = subdomain.to_s.strip
+      @api_key = api_key.to_s.strip
       @user_agent = user_agent
       @adapter = adapter
       @max_retries = max_retries

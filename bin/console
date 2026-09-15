@@ -1,0 +1,18 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "bundler/setup"
+require "picqer_api"
+require "irb"
+
+# Set PICQER_SUBDOMAIN and PICQER_API_KEY to get a live `client` in the session.
+if ENV["PICQER_SUBDOMAIN"] && ENV["PICQER_API_KEY"]
+  client = PicqerAPI::Client.new(
+    subdomain: ENV["PICQER_SUBDOMAIN"],
+    api_key: ENV["PICQER_API_KEY"],
+    user_agent: ENV.fetch("PICQER_USER_AGENT", "PostCo picqer_api console")
+  )
+  puts "client -> #{client.base_url}"
+end
+
+IRB.start(__FILE__)

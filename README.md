@@ -208,7 +208,30 @@ yourself, or inject `sleeper:` to control how the wait happens.
 ```bash
 bundle install
 bundle exec rake        # minitest + standard
+bundle exec rake test   # tests only
 ```
+
+One file, or one test: `bundle exec ruby -Itest -Ilib test/picqer_api/text_test.rb -n /truncat/`.
+
+### Probing a live account
+
+The suite never touches the network. To exercise the gem against a real account:
+
+```bash
+export PICQER_SUBDOMAIN=your-subdomain
+export PICQER_API_KEY=$(cat ~/.config/picqer/key)
+
+bin/smoke            # read-only: reachability, vocabularies, scope, rate limit
+bin/smoke --write    # also creates a probe return, reads it back and deletes it
+bin/console          # IRB with a live `client` already built
+```
+
+`bin/smoke` is the quickest way to tell a scoped key from an unscoped one: a scoped key
+reports an `idfulfilment_customer` on its returns and raises `NotAccessibleError` on
+`receive`.
+
+The write probe deletes what it creates. A return stops being deletable only once a line has
+been added to stock, which requires `receive` and which the probe never calls.
 
 There is no Picqer sandbox. Picqer issue free, non-expiring developer accounts on their own
 subdomain; ask explicitly for the fulfilment version if you need to exercise customer-scoped

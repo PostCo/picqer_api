@@ -13,6 +13,15 @@ module PicqerAPI
       assert_raises(ArgumentError) { Client.new(subdomain: "acme", api_key: "") }
     end
 
+    def test_strips_whitespace_around_the_credentials
+      stub_picqer(:get, "warehouses", body: [])
+
+      build_client(subdomain: "acme\n", api_key: "test-key\n").warehouses.all
+
+      assert_requested(:get, "#{BASE_URL}/warehouses?offset=0",
+        headers: {"Authorization" => "Basic #{Base64.strict_encode64("test-key:")}"})
+    end
+
     def test_sends_the_api_key_as_the_basic_username_with_an_empty_password
       stub_picqer(:get, "warehouses", body: [])
 
