@@ -16,6 +16,7 @@ module PicqerAPI
   autoload :ValidationError, "picqer_api/errors"
   autoload :NotFoundError, "picqer_api/errors"
   autoload :NotAccessibleError, "picqer_api/errors"
+  autoload :PaginationError, "picqer_api/errors"
   autoload :RateLimitError, "picqer_api/errors"
   autoload :ServerError, "picqer_api/errors"
 

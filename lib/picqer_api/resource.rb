@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "faraday"
 require "json"
 
 module PicqerAPI
@@ -7,7 +8,7 @@ module PicqerAPI
     # Picqer pages at 100 rows via `offset`.
     PAGE_SIZE = 100
 
-    # Guard against an unbounded loop if a filter stops narrowing.
+    # Page ceiling. Reaching it raises rather than truncating.
     MAX_PAGES = 100
 
     # 400 with this code means the endpoint is not available to a
@@ -25,45 +26,65 @@ module PicqerAPI
     private
 
     def get_request(path, params: {}, headers: {})
-      with_rate_limit_retry do
-        handle_response(client.connection.get(path, params, headers))
-      end
+      request { client.connection.get(path, params, headers) }
     end
 
     def post_request(path, body: {}, headers: {})
-      with_rate_limit_retry do
-        handle_response(client.connection.post(path, body, headers))
-      end
+      request { client.connection.post(path, body, headers) }
     end
 
     def put_request(path, body: {}, headers: {})
-      with_rate_limit_retry do
-        handle_response(client.connection.put(path, body, headers))
-      end
+      request { client.connection.put(path, body, headers) }
     end
 
     def delete_request(path, headers: {})
+      request { client.connection.delete(path, nil, headers) }
+    end
+
+    def request
       with_rate_limit_retry do
-        handle_response(client.connection.delete(path, nil, headers))
+        handle_response(yield)
+      rescue Faraday::Error => error
+        raise_transport_error(error)
       end
+    end
+
+    # A timeout or a dropped connection is not a Picqer error and carries no
+    # status. It reaches the caller as an APIError so one rescue covers every
+    # failure of a call.
+    def raise_transport_error(error)
+      wrapped = APIError.new(
+        "Network request failed: #{error.message}",
+        response: error.response,
+        status_code: error.response_status
+      )
+
+      raise wrapped, cause: error
     end
 
     # Walks `offset` until a short page arrives. Every caller that needs the whole
     # list must paginate: an unfiltered GET /returns returns only the first 100.
+    #
+    # A truncated list that looks complete is the failure this gem exists to
+    # prevent, so hitting the page guard raises rather than returning what was
+    # collected so far. Narrow the query, or page by hand with `offset`.
     def paginate(path, params: {})
       rows = []
       offset = params[:offset].to_i
 
       MAX_PAGES.times do
         page = get_request(path, params: params.merge(offset: offset))
-        page = [] unless page.is_a?(Array)
+        raise APIError, "expected a list from #{path}, got #{page.class}" unless page.is_a?(Array)
+
         rows.concat(page)
-        break if page.length < PAGE_SIZE
+        return rows if page.length < PAGE_SIZE
 
         offset += PAGE_SIZE
       end
 
-      rows
+      raise PaginationError,
+        "#{path} still had rows after #{MAX_PAGES} pages (#{rows.length} collected). " \
+        "Narrow the query with a supported filter, or page by hand with `offset`."
     end
 
     def with_rate_limit_retry

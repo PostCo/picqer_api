@@ -64,6 +64,11 @@ client.returns.all(updated_after: "2026-09-14")   # every page, walked by offset
 client.returns.search("RMA-12345")                # fuzzy substring match
 ```
 
+`all` raises `PaginationError` rather than returning a truncated list if the result runs past
+10,000 rows. A list that looks complete and is not is the failure this gem exists to prevent,
+so the ceiling is loud: narrow the query with a supported filter, or page by hand with
+`offset`.
+
 Only `search`, `status`, `emailaddress`, `idcustomer`, `created_after`, `updated_after` and
 `offset` are honoured. Every other filter is accepted, ignored, and answered with the **entire
 list** and a `200`, so anything outside that set raises `ArgumentError` here rather than
@@ -179,8 +184,9 @@ All errors inherit from `PicqerAPI::Error` and carry `status_code`, `error_code`
 | `NotFoundError`       | 404                                                         |
 | `NotAccessibleError`  | any status with `error_code 31`                             |
 | `RateLimitError`      | 429                                                         |
+| `PaginationError`     | a list ran past the page ceiling, so it would be truncated  |
 | `ServerError`         | 5xx                                                         |
-| `APIError`            | anything else, including transport failures                 |
+| `APIError`            | anything else, including timeouts and dropped connections   |
 
 **Branch on `error_code`, never on the message** — Picqer's messages are in Dutch and are
 display text.

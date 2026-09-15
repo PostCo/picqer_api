@@ -31,5 +31,9 @@ module PicqerAPI
 
   class RateLimitError < Error; end
 
+  # A list ran past the page ceiling, so what was collected is not the whole
+  # list. Raised instead of returning a truncated list that looks complete.
+  class PaginationError < Error; end
+
   class ServerError < Error; end
 end

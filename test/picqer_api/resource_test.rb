@@ -65,6 +65,41 @@ module PicqerAPI
       assert_equal 30, error.retry_after
     end
 
+    def test_wraps_a_timeout_as_an_api_error
+      stub_request(:get, "#{BASE_URL}/warehouses?offset=0").to_timeout
+
+      error = assert_raises(APIError) { client.warehouses.all }
+
+      assert_match(/Network request failed/, error.message)
+      assert_kind_of Faraday::Error, error.cause
+    end
+
+    def test_wraps_a_dropped_connection_as_an_api_error
+      stub_request(:post, "#{BASE_URL}/returns").to_raise(Errno::ECONNRESET)
+
+      assert_raises(APIError) { client.returns.create({idreturn_status: 1}) }
+    end
+
+    def test_raises_rather_than_returning_a_truncated_list_at_the_page_ceiling
+      full_page = Array.new(Resource::PAGE_SIZE) { |index| {idwarehouse: index} }
+      stub_request(:get, %r{#{BASE_URL}/warehouses}).to_return(
+        status: 200, body: JSON.dump(full_page), headers: {"Content-Type" => "application/json"}
+      )
+
+      error = assert_raises(PaginationError) { client.warehouses.all }
+
+      assert_match(/still had rows after #{Resource::MAX_PAGES} pages/, error.message)
+      assert_requested(:get, "#{BASE_URL}/warehouses?offset=#{(Resource::MAX_PAGES - 1) * Resource::PAGE_SIZE}")
+    end
+
+    def test_raises_when_a_list_endpoint_does_not_return_a_list
+      stub_picqer(:get, "warehouses", body: {idwarehouse: 13910})
+
+      error = assert_raises(APIError) { client.warehouses.all }
+
+      assert_match(/expected a list/, error.message)
+    end
+
     def test_walks_offset_until_a_short_page_arrives
       stub_picqer(:get, "warehouses", query: {"offset" => "0"}, body: Array.new(100) { |index| {idwarehouse: index} })
       stub_picqer(:get, "warehouses", query: {"offset" => "100"}, body: [{idwarehouse: 100}])
