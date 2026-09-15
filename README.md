@@ -207,7 +207,7 @@ yourself, or inject `sleeper:` to control how the wait happens.
 
 ```bash
 bundle install
-bundle exec rake        # rspec + standard
+bundle exec rake        # minitest + standard
 ```
 
 There is no Picqer sandbox. Picqer issue free, non-expiring developer accounts on their own
