@@ -75,17 +75,26 @@ end
 
 section "Write probe"
 status = client.return_statuses.all.first or abort("   no return status available to create with")
-reference = "PROBE-#{Time.now.to_i}"
-sent_name = "Probe 😀 #{"x" * 300}"
+raw = "Probe 😀 name  double  spaced #{"x" * 300}"
+created = []
 
-created = client.returns.create({idreturn_status: status.idreturn_status, reference: reference, name: sent_name})
-puts "   created idreturn=#{created.idreturn} returnid=#{created.returnid}"
+# Sent raw, so Picqer does the stripping and truncating. Text.as_stored_by_picqer
+# should predict the result exactly.
+unsanitized = client.returns.create(
+  {idreturn_status: status.idreturn_status, reference: "PROBE-RAW-#{Time.now.to_i}", name: raw},
+  sanitize: false
+)
+created << unsanitized.idreturn
+stored = client.returns.find(unsanitized.idreturn)
+puts "   created idreturn=#{unsanitized.idreturn} returnid=#{unsanitized.returnid}"
+puts "   create echo length #{unsanitized.name.to_s.length}, stored length #{stored.name.to_s.length} (the echo is the input, not the row)"
+puts "   as_stored_by_picqer predicts the server: #{stored.name == PicqerAPI::Text.as_stored_by_picqer(raw)}"
 
-stored = client.returns.find(created.idreturn)
-puts "   create echo name length: #{created.name.to_s.length} (echoes input)"
-puts "   stored  name length: #{stored.name.to_s.length} (what Picqer kept)"
-puts "   emoji survived: #{stored.name.to_s.include?("😀")}"
-puts "   reference round-tripped: #{stored.reference == reference}"
+# Sent sanitized, which is what the gem does by default. Nothing should change.
+sent = PicqerAPI::Text.sanitize(raw)
+sanitized = client.returns.create({idreturn_status: status.idreturn_status, reference: "PROBE-CLEAN-#{Time.now.to_i}", name: raw})
+created << sanitized.idreturn
+puts "   sanitized value round-trips unchanged: #{client.returns.find(sanitized.idreturn).name == sent}"
 
-client.returns.delete(created.idreturn)
-puts "   deleted #{created.idreturn}"
+created.each { |idreturn| client.returns.delete(idreturn) }
+puts "   deleted #{created.join(", ")}"

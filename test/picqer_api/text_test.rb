@@ -14,9 +14,30 @@ module PicqerAPI
       assert_equal 255, Text.sanitize("漢" * 255).length
     end
 
-    def test_strips_four_byte_characters_without_leaving_double_spaces
+    def test_strips_four_byte_characters_without_leaving_the_gap
       assert_equal "Anna Smith", Text.sanitize("Anna 😀 Smith")
       assert_equal "RMA-123", Text.sanitize("RMA-123 😀")
+      assert_equal "Smith", Text.sanitize("😀 Smith")
+    end
+
+    def test_leaves_whitespace_elsewhere_in_the_value_alone
+      # Picqer keeps it, so collapsing it here would rewrite data the caller sent.
+      assert_equal "12  Main St", Text.sanitize("12  Main St")
+      assert_equal " padded ", Text.sanitize(" padded ")
+      assert_equal "line\nbreak", Text.sanitize("line\nbreak")
+    end
+
+    def test_as_stored_by_picqer_keeps_the_gap_the_server_leaves
+      # Measured against the live API: the emoji goes, both spaces stay.
+      assert_equal "Anna  Smith", Text.as_stored_by_picqer("Anna 😀 Smith")
+      assert_equal "TRK  999", Text.as_stored_by_picqer("TRK 😀 999")
+      assert_equal 255, Text.as_stored_by_picqer("a" * 300).length
+    end
+
+    def test_a_sanitized_value_is_stable_through_picqer
+      raw = "Anna 😀 Smith " + ("x" * 300)
+
+      assert_equal Text.sanitize(raw), Text.as_stored_by_picqer(Text.sanitize(raw))
     end
 
     def test_allows_the_longer_text_limit_for_log_messages

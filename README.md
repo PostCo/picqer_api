@@ -131,15 +131,26 @@ is fatal to a return create, while a null one is normal.
 ### Field limits
 
 ```ruby
-PicqerAPI::Text.sanitize("Anna 😀 Smith")   # => "Anna Smith"
-PicqerAPI::Text.truncated?("a" * 300)       # => true
+PicqerAPI::Text.sanitize("Anna 😀 Smith")             # => "Anna Smith"   what to send
+PicqerAPI::Text.as_stored_by_picqer("Anna 😀 Smith")  # => "Anna  Smith"  what the server keeps
+PicqerAPI::Text.truncated?("a" * 300)                 # => true
 ```
 
 Every string field on a return is a utf8mb3 `varchar(255)`. Picqer truncates at 255 characters
-and strips four-byte characters silently — an emoji in a customer name disappears and leaves
-mangled spacing. `returns.create` and `returns.update` sanitize the known header fields by
-default so the loss happens where you can see it; pass `sanitize: false` to send the raw values.
-`logs.message` is a `text` column (65,535).
+and strips four-byte characters silently — an emoji in a customer name disappears and **leaves
+the gap behind**, so `"Anna 😀 Smith"` is stored as `"Anna  Smith"` with a double space. Both
+behaviours are measured against the live API, not read from the docs.
+
+`sanitize` removes the character and one adjacent space, so the result is what you would want
+stored and Picqer keeps it byte for byte — which makes a read-back comparison against the value
+you sent exact. It touches nothing else: `"12  Main St"` keeps its double space, because Picqer
+would have kept it too.
+
+`as_stored_by_picqer` models the server instead, for predicting what an unsanitized value
+becomes.
+
+`returns.create` and `returns.update` sanitize the known header fields by default; pass
+`sanitize: false` to send raw. `logs.message` is a `text` column (65,535).
 
 ### Webhooks
 
