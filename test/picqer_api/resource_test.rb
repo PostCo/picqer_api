@@ -82,13 +82,13 @@ module PicqerAPI
 
     def test_raises_rather_than_returning_a_truncated_list_at_the_page_ceiling
       full_page = Array.new(Resource::PAGE_SIZE) { |index| {idwarehouse: index} }
-      stub_request(:get, %r{#{BASE_URL}/warehouses}).to_return(
+      stub_request(:get, /#{Regexp.escape(BASE_URL)}\/warehouses/o).to_return(
         status: 200, body: JSON.dump(full_page), headers: {"Content-Type" => "application/json"}
       )
 
       error = assert_raises(PaginationError) { client.warehouses.all }
 
-      assert_match(/still had rows after #{Resource::MAX_PAGES} pages/, error.message)
+      assert_includes error.message, "still had rows after #{Resource::MAX_PAGES} pages"
       assert_requested(:get, "#{BASE_URL}/warehouses?offset=#{(Resource::MAX_PAGES - 1) * Resource::PAGE_SIZE}")
     end
 
